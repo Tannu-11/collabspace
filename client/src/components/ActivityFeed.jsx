@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
 import API from '../api/axios';
 
-const icons = { task: '◈', project: '◉', member: '👤', ai: '✦', chat: '💬' };
-const colors = { task: 'var(--blue)', project: 'var(--green)', member: 'var(--purple)', ai: 'var(--ai)', chat: 'var(--amber)' };
+const icons  = { task: '◈', project: '◉', member: '👤', ai: '✦', chat: '💬' };
+const colors = {
+  task:    'var(--blue)',
+  project: 'var(--green)',
+  member:  'var(--purple)',
+  ai:      'var(--ai)',
+  chat:    'var(--amber)',
+};
 
 export default function ActivityFeed({ projectId, onClose }) {
   const [activities, setActivities] = useState([]);
@@ -38,12 +44,23 @@ export default function ActivityFeed({ projectId, onClose }) {
           </div>
         ) : activities.length === 0 ? (
           <div style={s.center}>
+            <div style={{ fontSize: '24px', marginBottom: '8px' }}>📋</div>
             <p style={{ color: 'var(--text3)', fontSize: '12px' }}>No activity yet</p>
           </div>
         ) : (
           activities.map((a, i) => (
-            <div key={a._id || i} style={s.item}>
-              <div style={{ ...s.icon, color: colors[a.type] || 'var(--blue)' }}>
+            <div key={a._id || i} style={s.item}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg3)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '8px',
+                background: `${colors[a.type] || 'var(--blue)'}15`,
+                border: `1px solid ${colors[a.type] || 'var(--blue)'}25`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '12px', color: colors[a.type] || 'var(--blue)',
+                flexShrink: 0,
+              }}>
                 {icons[a.type] || '◈'}
               </div>
               <div style={s.content}>
@@ -63,16 +80,28 @@ export default function ActivityFeed({ projectId, onClose }) {
 }
 
 const s = {
-  box:     { display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', overflow: 'hidden' },
-  head:    { padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  title:   { fontSize: '13px', fontWeight: '700' },
+  box:     {
+    display: 'flex', flexDirection: 'column', height: '100%',
+    background: 'var(--bg2)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-xl)', overflow: 'hidden',
+    boxShadow: 'var(--shadow-lg)',
+  },
+  head:    {
+    padding: '12px 14px', borderBottom: '1px solid var(--border)',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    background: 'var(--bg2)',
+  },
+  title:   { fontSize: '13px', fontWeight: '700', color: 'var(--text)' },
   list:    { flex: 1, overflowY: 'auto', padding: '8px' },
-  center:  { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px' },
-  item:    { display: 'flex', gap: '10px', padding: '10px 8px', borderRadius: 'var(--radius)', transition: 'background 0.15s' },
-  icon:    { fontSize: '14px', flexShrink: 0, marginTop: '2px', fontWeight: '700' },
+  center:  { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '120px' },
+  item:    {
+    display: 'flex', gap: '10px', padding: '10px 8px',
+    borderRadius: 'var(--radius)', transition: 'background 0.12s',
+    cursor: 'default',
+  },
   content: { flex: 1, minWidth: 0 },
   text:    { fontSize: '12px', lineHeight: '1.5', color: 'var(--text2)' },
   user:    { fontWeight: '600', color: 'var(--text)' },
-  target:  { color: 'var(--blue2)', fontStyle: 'italic' },
-  time:    { fontSize: '10px', color: 'var(--text3)', marginTop: '2px' },
+  target:  { color: 'var(--blue)', fontStyle: 'italic' },
+  time:    { fontSize: '10px', color: 'var(--text3)', marginTop: '2px', fontWeight: '500' },
 };

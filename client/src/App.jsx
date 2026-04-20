@@ -19,21 +19,30 @@ const PublicRoute = ({ children }) => {
 export default function App() {
   return (
     <BrowserRouter>
-      <Toaster position="top-right" gutter={8}
+      <Toaster
+        position="top-right"
+        gutter={8}
         toastOptions={{
           duration: 3000,
           style: {
-            background: 'var(--bg3)',
-            color: 'var(--text)',
-            border: '1px solid var(--border2)',
-            borderRadius: '10px',
+            background: '#ffffff',
+            color: '#1a1915',
+            border: '1px solid rgba(0,0,0,0.1)',
+            borderRadius: '12px',
             padding: '10px 16px',
             fontSize: '13px',
-            fontFamily: 'Geist, sans-serif',
-            boxShadow: 'var(--shadow-lg)',
+            fontFamily: 'DM Sans, sans-serif',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.06)',
+            fontWeight: '500',
           },
-          success: { iconTheme: { primary: '#34d399', secondary: 'var(--bg3)' }, style: { borderColor: 'rgba(52,211,153,0.2)' } },
-          error:   { iconTheme: { primary: '#f87171', secondary: 'var(--bg3)' }, style: { borderColor: 'rgba(248,113,113,0.2)' } },
+          success: {
+            iconTheme: { primary: '#16a34a', secondary: '#fff' },
+            style: { borderColor: 'rgba(22,163,74,0.2)', borderLeft: '3px solid #16a34a' },
+          },
+          error: {
+            iconTheme: { primary: '#dc2626', secondary: '#fff' },
+            style: { borderColor: 'rgba(220,38,38,0.2)', borderLeft: '3px solid #dc2626' },
+          },
         }}
       />
       <Routes>
