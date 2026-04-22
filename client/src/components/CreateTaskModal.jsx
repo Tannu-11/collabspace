@@ -78,7 +78,8 @@ export default function CreateTaskModal({ projectId, members, onClose, onCreated
             </div>
             <div style={{ flex: 1 }}>
               <label className="label">Deadline</label>
-              <input type="date" value={form.deadline} min={new Date().toISOString().split('T')[0]}
+              <input type="date" value={form.deadline}
+                min={taskToEdit ? undefined : new Date().toISOString().split('T')[0]}
                 onChange={e => setForm({...form, deadline: e.target.value})} />
             </div>
           </div>

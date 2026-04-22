@@ -69,7 +69,8 @@ export default function ProjectBoard() {
 
   // Real-time task updates
   useEffect(() => {
-    const socket = io('http://localhost:5000', {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const socket = io(API_URL, {
       transports: ['websocket'],
     });
 
@@ -118,6 +119,13 @@ export default function ProjectBoard() {
 
   const onDragEnd = async ({ draggableId, destination }) => {
     if (!destination) return;
+    const task = tasks.find(t => t._id === draggableId);
+    if (!task) return;
+    const isMine = (task.assignedTo?._id || task.assignedTo) === user.id;
+    if (!isLeader && !isMine) {
+      toast.error('Not authorized to move this task');
+      return;
+    }
     setTasks(p => p.map(t => t._id === draggableId ? {...t, status: destination.droppableId} : t));
     await API.put(`/tasks/${draggableId}`, { status: destination.droppableId });
     toast.success(`Task moved to ${destination.droppableId}`, { duration: 1500 });
@@ -136,15 +144,15 @@ export default function ProjectBoard() {
   const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
   const handleDrop = async (e) => {
     e.preventDefault(); setIsDragging(false);
-    const uploadedFiles = e.dataTransfer.files;
+    const uploadedFiles = e.dataTransfer?.files || e.target?.files || [];
     if (!uploadedFiles.length) return;
     
     for (let i = 0; i < uploadedFiles.length; i++) {
       const formData = new FormData();
       formData.append('file', uploadedFiles[i]);
       try {
-        const { data } = await API.post(`/files/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-        setFiles(prev => [data, ...prev]);
+        await API.post(`/files/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+        // Don't optimistically update — socket event 'fileUploaded' handles it (with dedup)
         toast.success(`Uploaded ${uploadedFiles[i].name}`);
       } catch (err) { toast.error(`Failed to upload ${uploadedFiles[i].name}`); }
     }
@@ -154,7 +162,7 @@ export default function ProjectBoard() {
     if (!confirm('Delete file?')) return;
     try {
       await API.delete(`/files/${fid}`);
-      setFiles(prev => prev.filter(f => f._id !== fid));
+      // Don't manually update — socket event 'fileDeleted' handles it
       toast.success('Deleted');
     } catch { toast.error('Failed to delete'); }
   };
@@ -519,40 +527,94 @@ export default function ProjectBoard() {
                   display: 'flex', flexDirection: 'column'
                 }}
               >
-                <div style={{ textAlign: 'center', padding: '20px', borderBottom: '1px solid var(--border)' }}>
+                {/* Upload Header */}
+                <div style={{ textAlign: 'center', padding: '20px 16px', borderBottom: '1px solid var(--border)' }}>
                   <span style={{ fontSize: '28px', display: 'block', marginBottom: '8px' }}>📁</span>
                   <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text)', marginBottom: '4px' }}>Project Files</h3>
-                  <p style={{ fontSize: '12px', color: 'var(--text3)' }}>Drag & drop any file here (JPG, PDF, Video, PPT)</p>
-                  
-                  {/* Fallback browse button */}
-                  <label className="btn btn-primary btn-sm" style={{ marginTop: '12px', cursor: 'pointer', display: 'inline-block' }}>
-                    Browse Files
-                    <input type="file" multiple onChange={(e) => handleDrop({ preventDefault: ()=>{}, dataTransfer: { files: e.target.files }})} style={{ display: 'none' }} />
+                  <p style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '12px' }}>Drop any file here or browse to upload</p>
+                  <label className="btn btn-primary btn-sm" style={{ cursor: 'pointer', display: 'inline-block' }}>
+                    + Browse Files
+                    <input type="file" multiple onChange={(e) => handleDrop(e)} style={{ display: 'none' }} />
                   </label>
                 </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {files.map(f => (
-                    <div key={f._id} style={{ ...s.fileCard, padding: '10px' }}>
-                      <div style={{ ...s.fileIcon, width: '32px', height: '32px', fontSize: '16px' }}>📄</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {f.originalName}
-                        </p>
-                        <p style={{ fontSize: '10px', color: 'var(--text3)' }}>
-                          {(f.size / 1024 / 1024).toFixed(2)} MB • {f.uploader?.name}
-                        </p>
+
+                {/* File List */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {files.map(f => {
+                    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                    const fileUrl = `${API_URL}/uploads/${f.filename}`;
+                    const ext = (f.originalName || '').split('.').pop().toLowerCase();
+                    const icon = (['jpg','jpeg','png','gif','webp','svg'].includes(ext)) ? '🖼️'
+                               : (['pdf'].includes(ext)) ? '📝'
+                               : (['mp4','mov','avi','mkv'].includes(ext)) ? '🎥'
+                               : (['ppt','pptx'].includes(ext)) ? '📊'
+                               : (['doc','docx'].includes(ext)) ? '📄'
+                               : '📦';
+                    const canDelete = isLeader || (f.uploader?._id || f.uploader) === user.id;
+
+                    return (
+                      <div key={f._id} style={{
+                        background: 'var(--bg3)', border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-lg)', overflow: 'hidden'
+                      }}>
+                        {/* File Info Row */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px' }}>
+                          <div style={{
+                            width: '36px', height: '36px', borderRadius: '8px',
+                            background: 'var(--bg4)', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', fontSize: '18px', flexShrink: 0
+                          }}>{icon}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {f.originalName}
+                            </p>
+                            <p style={{ fontSize: '10px', color: 'var(--text3)', marginTop: '2px' }}>
+                              {(f.size / 1024 / 1024).toFixed(2)} MB &bull; {f.uploader?.name}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons Row */}
+                        <div style={{ display: 'flex', borderTop: '1px solid var(--border)' }}>
+                          <a
+                            href={fileUrl}
+                            download={f.originalName}
+                            style={{
+                              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              gap: '4px', padding: '7px 0', fontSize: '11px', fontWeight: '600',
+                              color: 'var(--green)', textDecoration: 'none',
+                              borderRight: canDelete ? '1px solid var(--border)' : 'none',
+                              transition: 'background 0.12s',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--green-dim)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            ⬇️ Save
+                          </a>
+                          {canDelete && (
+                            <button
+                              onClick={() => deleteFile(f._id)}
+                              style={{
+                                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                gap: '4px', padding: '7px 0', fontSize: '11px', fontWeight: '600',
+                                color: 'var(--red)', background: 'none', border: 'none',
+                                cursor: 'pointer', fontFamily: 'inherit',
+                                transition: 'background 0.12s',
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'var(--red-dim)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                              🗑️ Delete
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <a href={`http://localhost:5000/uploads/${f.filename}`} download target="_blank" rel="noreferrer" className="btn btn-ghost" style={{ padding: '2px 6px', fontSize: '10px', minHeight: 'auto', height: 'auto' }}>⬇️</a>
-                        {(isLeader || (f.uploader?._id || f.uploader) === user.id) && (
-                          <button onClick={() => deleteFile(f._id)} className="btn btn-ghost" style={{ padding: '2px 6px', fontSize: '10px', minHeight: 'auto', height: 'auto', color: 'var(--red)' }}>✕</button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {files.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text3)', fontSize: '12px' }}>
-                      No files uploaded yet.
+                      <div style={{ fontSize: '28px', marginBottom: '8px', opacity: 0.4 }}>📤</div>
+                      No files yet. Upload your first file above!
                     </div>
                   )}
                 </div>

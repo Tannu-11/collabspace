@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const File = require('../models/File');
+const Project = require('../models/Project');
 const protect = require('../middleware/authMiddleware');
 
 // Ensure uploads directory exists
@@ -67,7 +68,14 @@ router.delete('/:id', protect, async (req, res) => {
     const fileDoc = await File.findById(req.params.id);
     if (!fileDoc) return res.status(404).json({ message: 'File not found' });
 
-    // Ensure user has permission (uploader or leader, simplified to just exist for now)
+    // Ensure user has permission (uploader or leader)
+    const project = await Project.findById(fileDoc.project);
+    const isLeader = project && project.leader.toString() === req.user.id;
+    const isUploader = fileDoc.uploader.toString() === req.user.id;
+    
+    if (!isLeader && !isUploader) {
+      return res.status(401).json({ message: 'Not authorized to delete this file' });
+    }
     
     // Delete from filesystem
     if (fs.existsSync(fileDoc.path)) {

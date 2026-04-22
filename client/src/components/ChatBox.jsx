@@ -8,8 +8,7 @@ const gc = n => COLORS[n?.charCodeAt(0) % COLORS.length];
 const EMOJIS = ['👍','👎','❤️','🔥','😂','🎉','👀','🙌'];
 const INPUT_EMOJIS = ['😀', '😂', '🥺', '😎', '😍', '🤔', '🙌', '👍', '👎', '🔥', '❤️', '🎉', '✨', '😭', '😡', '✅'];
 
-// Module-level socket so it persists across re-renders
-let socketInstance = null;
+// Module-level variables removed
 
 export default function ChatBox({ projectId, members = [], onClose }) {
   const { user } = useAuth();
@@ -34,7 +33,8 @@ export default function ChatBox({ projectId, members = [], onClose }) {
 
     // Create or reuse socket
     if (!socketRef.current || !socketRef.current.connected) {
-      socketRef.current = io('http://localhost:5000', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      socketRef.current = io(API_URL, {
         transports: ['websocket'],
         reconnection: true,
         reconnectionAttempts: Infinity,

@@ -66,7 +66,6 @@ export default function AISidebar({ project, tasks, onClose }) {
       const bulk = await API.post('/tasks/bulk', { tasks: data.tasks, projectId: project._id });
       setGeneratedTasks(bulk.data);
       setAiGenDone(true);
-      window.dispatchEvent(new CustomEvent('tasks-generated', { detail: bulk.data }));
     } catch (err) {
       console.error(err);
     }

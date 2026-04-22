@@ -126,15 +126,18 @@ export default function Navbar({ onAIOpen }) {
 
     // Socket Connection for Real-time Notifications
     if (!socketRef.current) {
-      socketRef.current = io('http://localhost:5000', { transports: ['websocket'] });
-      
-      socketRef.current.on('connect', () => {
-        socketRef.current.emit('joinUserRoom', user.id);
-      });
-      
-      socketRef.current.on('notification', (n) => {
-        toast(`🔔 ${n.sender?.name} mentioned you in ${n.project?.name}`);
-        setNotifications(prev => [{
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      socketRef.current = io(API_URL, { transports: ['websocket'] });
+    }
+    
+    const socket = socketRef.current;
+    
+    const onConnect = () => socket.emit('joinUserRoom', user.id);
+    const onNotif = (n) => {
+      toast(`🔔 ${n.sender?.name} mentioned you in ${n.project?.name}`);
+      setNotifications(prev => {
+        if (prev.some(p => p.dbId === n._id)) return prev;
+        return [{
           id: n._id,
           type: 'mention',
           icon: '💬',
@@ -143,15 +146,21 @@ export default function Navbar({ onAIOpen }) {
           projectId: n.project?._id || n.project,
           isRead: n.isRead,
           dbId: n._id
-        }, ...prev]);
+        }, ...prev];
       });
+    };
+
+    socket.on('connect', onConnect);
+    socket.on('notification', onNotif);
+    
+    if (socket.connected) {
+      socket.emit('joinUserRoom', user.id);
     }
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      socket.off('connect', onConnect);
+      socket.off('notification', onNotif);
+      // We don't disconnect the socket here to preserve it across re-renders
     };
   }, [user]);
 
